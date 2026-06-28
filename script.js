@@ -1,5 +1,4 @@
-// ⚠️ Reemplaza esta URL por la de tu Worker desplegado en Cloudflare (paso B abajo).
-const API_BASE = 'https://REEMPLAZA-CON-TU-WORKER.workers.dev';
+const API_BASE = 'https://unidosenlabusqueda.morning-hall-4207.workers.dev';
 
 // ---------- STATE ----------
 let state = {
@@ -125,6 +124,19 @@ async function postNewMissingReport(report) {
     return false;
   } catch (e) {
     return false;
+  }
+}
+
+// Admin: notifica por WhatsApp (vía GoHighLevel) cuando se resuelve un reporte.
+async function notifyReporter(payload) {
+  try {
+    await fetch(`${API_BASE}/api/notify-resolved`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Admin-Key': ADMIN_API_KEY },
+      body: JSON.stringify(payload),
+    });
+  } catch (e) {
+    // Falla silenciosa: no bloqueamos el flujo del admin si el webhook no responde.
   }
 }
 
@@ -951,6 +963,17 @@ function openResolveForm(missingId) {
     report.resolved = true;
     if (cedula) report.cedula = cedula;
     await saveMissingReportsAdmin();
+
+    if (report.contact) {
+      await notifyReporter({
+        name: report.name,
+        contact: report.contact,
+        status,
+        currentLocation: location,
+        foundLocation: report.lastSeenLocation,
+        notes,
+      });
+    }
 
     closeModal();
     render();
